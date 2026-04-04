@@ -5,18 +5,33 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  AnalysisRecord,
+  AnalysisResult,
+  AnalyzeAudioBody,
+  ErrorResponse,
+  GetTopSpecies200,
+  GetTopSpeciesParams,
+  HealthStatus,
+  ListAnalyses200,
+  ListAnalysesParams,
+  SaveAnalysisBody,
+  Stats,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -25,7 +40,6 @@ type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const getHealthCheckUrl = () => {
@@ -92,6 +106,697 @@ export function useHealthCheck<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getHealthCheckQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary BirdNET service health check
+ */
+export const getBirdnetHealthUrl = () => {
+  return `/api/birdnet/healthz`;
+};
+
+export const birdnetHealth = async (
+  options?: RequestInit,
+): Promise<HealthStatus> => {
+  return customFetch<HealthStatus>(getBirdnetHealthUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getBirdnetHealthQueryKey = () => {
+  return [`/api/birdnet/healthz`] as const;
+};
+
+export const getBirdnetHealthQueryOptions = <
+  TData = Awaited<ReturnType<typeof birdnetHealth>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof birdnetHealth>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getBirdnetHealthQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof birdnetHealth>>> = ({
+    signal,
+  }) => birdnetHealth({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof birdnetHealth>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type BirdnetHealthQueryResult = NonNullable<
+  Awaited<ReturnType<typeof birdnetHealth>>
+>;
+export type BirdnetHealthQueryError = ErrorType<unknown>;
+
+/**
+ * @summary BirdNET service health check
+ */
+
+export function useBirdnetHealth<
+  TData = Awaited<ReturnType<typeof birdnetHealth>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof birdnetHealth>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getBirdnetHealthQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Analyze audio for bird species
+ */
+export const getAnalyzeAudioUrl = () => {
+  return `/api/birdnet/analyze`;
+};
+
+export const analyzeAudio = async (
+  analyzeAudioBody: AnalyzeAudioBody,
+  options?: RequestInit,
+): Promise<AnalysisResult> => {
+  const formData = new FormData();
+  formData.append(`file`, analyzeAudioBody.file);
+  if (analyzeAudioBody.lat !== undefined) {
+    formData.append(`lat`, analyzeAudioBody.lat.toString());
+  }
+  if (analyzeAudioBody.lon !== undefined) {
+    formData.append(`lon`, analyzeAudioBody.lon.toString());
+  }
+  if (analyzeAudioBody.week !== undefined) {
+    formData.append(`week`, analyzeAudioBody.week.toString());
+  }
+  if (analyzeAudioBody.min_conf !== undefined) {
+    formData.append(`min_conf`, analyzeAudioBody.min_conf.toString());
+  }
+  if (analyzeAudioBody.sensitivity !== undefined) {
+    formData.append(`sensitivity`, analyzeAudioBody.sensitivity.toString());
+  }
+  if (analyzeAudioBody.overlap !== undefined) {
+    formData.append(`overlap`, analyzeAudioBody.overlap.toString());
+  }
+
+  return customFetch<AnalysisResult>(getAnalyzeAudioUrl(), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getAnalyzeAudioMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof analyzeAudio>>,
+    TError,
+    { data: BodyType<AnalyzeAudioBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof analyzeAudio>>,
+  TError,
+  { data: BodyType<AnalyzeAudioBody> },
+  TContext
+> => {
+  const mutationKey = ["analyzeAudio"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof analyzeAudio>>,
+    { data: BodyType<AnalyzeAudioBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return analyzeAudio(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AnalyzeAudioMutationResult = NonNullable<
+  Awaited<ReturnType<typeof analyzeAudio>>
+>;
+export type AnalyzeAudioMutationBody = BodyType<AnalyzeAudioBody>;
+export type AnalyzeAudioMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Analyze audio for bird species
+ */
+export const useAnalyzeAudio = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof analyzeAudio>>,
+    TError,
+    { data: BodyType<AnalyzeAudioBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof analyzeAudio>>,
+  TError,
+  { data: BodyType<AnalyzeAudioBody> },
+  TContext
+> => {
+  return useMutation(getAnalyzeAudioMutationOptions(options));
+};
+
+/**
+ * @summary List past analyses
+ */
+export const getListAnalysesUrl = (params?: ListAnalysesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/history?${stringifiedParams}`
+    : `/api/history`;
+};
+
+export const listAnalyses = async (
+  params?: ListAnalysesParams,
+  options?: RequestInit,
+): Promise<ListAnalyses200> => {
+  return customFetch<ListAnalyses200>(getListAnalysesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAnalysesQueryKey = (params?: ListAnalysesParams) => {
+  return [`/api/history`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAnalysesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAnalyses>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAnalysesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAnalyses>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAnalysesQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAnalyses>>> = ({
+    signal,
+  }) => listAnalyses(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAnalyses>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAnalysesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAnalyses>>
+>;
+export type ListAnalysesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List past analyses
+ */
+
+export function useListAnalyses<
+  TData = Awaited<ReturnType<typeof listAnalyses>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAnalysesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAnalyses>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAnalysesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Save an analysis result to history
+ */
+export const getSaveAnalysisUrl = () => {
+  return `/api/history`;
+};
+
+export const saveAnalysis = async (
+  saveAnalysisBody: SaveAnalysisBody,
+  options?: RequestInit,
+): Promise<AnalysisRecord> => {
+  return customFetch<AnalysisRecord>(getSaveAnalysisUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(saveAnalysisBody),
+  });
+};
+
+export const getSaveAnalysisMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveAnalysis>>,
+    TError,
+    { data: BodyType<SaveAnalysisBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof saveAnalysis>>,
+  TError,
+  { data: BodyType<SaveAnalysisBody> },
+  TContext
+> => {
+  const mutationKey = ["saveAnalysis"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof saveAnalysis>>,
+    { data: BodyType<SaveAnalysisBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return saveAnalysis(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SaveAnalysisMutationResult = NonNullable<
+  Awaited<ReturnType<typeof saveAnalysis>>
+>;
+export type SaveAnalysisMutationBody = BodyType<SaveAnalysisBody>;
+export type SaveAnalysisMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Save an analysis result to history
+ */
+export const useSaveAnalysis = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveAnalysis>>,
+    TError,
+    { data: BodyType<SaveAnalysisBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof saveAnalysis>>,
+  TError,
+  { data: BodyType<SaveAnalysisBody> },
+  TContext
+> => {
+  return useMutation(getSaveAnalysisMutationOptions(options));
+};
+
+/**
+ * @summary Get a single analysis record
+ */
+export const getGetAnalysisUrl = (id: number) => {
+  return `/api/history/${id}`;
+};
+
+export const getAnalysis = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AnalysisRecord> => {
+  return customFetch<AnalysisRecord>(getGetAnalysisUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAnalysisQueryKey = (id: number) => {
+  return [`/api/history/${id}`] as const;
+};
+
+export const getGetAnalysisQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAnalysis>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAnalysis>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAnalysisQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAnalysis>>> = ({
+    signal,
+  }) => getAnalysis(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAnalysis>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAnalysisQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAnalysis>>
+>;
+export type GetAnalysisQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get a single analysis record
+ */
+
+export function useGetAnalysis<
+  TData = Awaited<ReturnType<typeof getAnalysis>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAnalysis>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAnalysisQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Delete an analysis record
+ */
+export const getDeleteAnalysisUrl = (id: number) => {
+  return `/api/history/${id}`;
+};
+
+export const deleteAnalysis = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteAnalysisUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteAnalysisMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAnalysis>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAnalysis>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAnalysis"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAnalysis>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteAnalysis(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAnalysisMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAnalysis>>
+>;
+
+export type DeleteAnalysisMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete an analysis record
+ */
+export const useDeleteAnalysis = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAnalysis>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAnalysis>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteAnalysisMutationOptions(options));
+};
+
+/**
+ * @summary Aggregate statistics across all analyses
+ */
+export const getGetStatsUrl = () => {
+  return `/api/history/stats`;
+};
+
+export const getStats = async (options?: RequestInit): Promise<Stats> => {
+  return customFetch<Stats>(getGetStatsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetStatsQueryKey = () => {
+  return [`/api/history/stats`] as const;
+};
+
+export const getGetStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getStats>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetStatsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getStats>>> = ({
+    signal,
+  }) => getStats({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStats>>
+>;
+export type GetStatsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Aggregate statistics across all analyses
+ */
+
+export function useGetStats<
+  TData = Awaited<ReturnType<typeof getStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getStats>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStatsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Most frequently detected species
+ */
+export const getGetTopSpeciesUrl = (params?: GetTopSpeciesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/history/top-species?${stringifiedParams}`
+    : `/api/history/top-species`;
+};
+
+export const getTopSpecies = async (
+  params?: GetTopSpeciesParams,
+  options?: RequestInit,
+): Promise<GetTopSpecies200> => {
+  return customFetch<GetTopSpecies200>(getGetTopSpeciesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTopSpeciesQueryKey = (params?: GetTopSpeciesParams) => {
+  return [`/api/history/top-species`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetTopSpeciesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTopSpecies>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetTopSpeciesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTopSpecies>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetTopSpeciesQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTopSpecies>>> = ({
+    signal,
+  }) => getTopSpecies(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTopSpecies>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTopSpeciesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTopSpecies>>
+>;
+export type GetTopSpeciesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Most frequently detected species
+ */
+
+export function useGetTopSpecies<
+  TData = Awaited<ReturnType<typeof getTopSpecies>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetTopSpeciesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTopSpecies>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTopSpeciesQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

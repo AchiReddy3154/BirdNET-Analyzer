@@ -6,4 +6,18 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./analysisLocation";
+export * from "./analysisRecord";
+export * from "./analysisResult";
+export * from "./analysisSettings";
+export * from "./analyzeAudioBody";
+export * from "./detection";
+export * from "./errorResponse";
+export * from "./getTopSpecies200";
+export * from "./getTopSpeciesParams";
 export * from "./healthStatus";
+export * from "./listAnalyses200";
+export * from "./listAnalysesParams";
+export * from "./saveAnalysisBody";
+export * from "./speciesCount";
+export * from "./stats";

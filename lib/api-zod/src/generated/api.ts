@@ -8,9 +8,246 @@
 import * as zod from "zod";
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
+});
+
+/**
+ * @summary BirdNET service health check
+ */
+export const BirdnetHealthResponse = zod.object({
+  status: zod.string(),
+});
+
+/**
+ * @summary Analyze audio for bird species
+ */
+export const analyzeAudioBodyWeekMax = 48;
+
+export const analyzeAudioBodyMinConfDefault = 0.1;
+export const analyzeAudioBodyMinConfMin = 0;
+export const analyzeAudioBodyMinConfMax = 1;
+
+export const analyzeAudioBodySensitivityDefault = 1;
+export const analyzeAudioBodySensitivityMin = 0.5;
+export const analyzeAudioBodySensitivityMax = 1.5;
+
+export const analyzeAudioBodyOverlapDefault = 0;
+export const analyzeAudioBodyOverlapMin = 0;
+export const analyzeAudioBodyOverlapMax = 2.9;
+
+export const AnalyzeAudioBody = zod.object({
+  file: zod.instanceof(File),
+  lat: zod.number().optional(),
+  lon: zod.number().optional(),
+  week: zod.number().min(1).max(analyzeAudioBodyWeekMax).optional(),
+  min_conf: zod
+    .number()
+    .min(analyzeAudioBodyMinConfMin)
+    .max(analyzeAudioBodyMinConfMax)
+    .default(analyzeAudioBodyMinConfDefault),
+  sensitivity: zod
+    .number()
+    .min(analyzeAudioBodySensitivityMin)
+    .max(analyzeAudioBodySensitivityMax)
+    .default(analyzeAudioBodySensitivityDefault),
+  overlap: zod
+    .number()
+    .min(analyzeAudioBodyOverlapMin)
+    .max(analyzeAudioBodyOverlapMax)
+    .default(analyzeAudioBodyOverlapDefault),
+});
+
+export const analyzeAudioResponseDetectionsItemConfidenceMin = 0;
+export const analyzeAudioResponseDetectionsItemConfidenceMax = 1;
+
+export const AnalyzeAudioResponse = zod.object({
+  file: zod.string(),
+  detections: zod.array(
+    zod.object({
+      start_time: zod.number(),
+      end_time: zod.number(),
+      scientific_name: zod.string(),
+      common_name: zod.string(),
+      confidence: zod
+        .number()
+        .min(analyzeAudioResponseDetectionsItemConfidenceMin)
+        .max(analyzeAudioResponseDetectionsItemConfidenceMax),
+    }),
+  ),
+  location: zod.object({
+    lat: zod.number().nullish(),
+    lon: zod.number().nullish(),
+    week: zod.number().nullish(),
+  }),
+  settings: zod.object({
+    min_conf: zod.number().optional(),
+    sensitivity: zod.number().optional(),
+    overlap: zod.number().optional(),
+  }),
+});
+
+/**
+ * @summary List past analyses
+ */
+export const listAnalysesQueryLimitDefault = 20;
+export const listAnalysesQueryOffsetDefault = 0;
+
+export const ListAnalysesQueryParams = zod.object({
+  limit: zod.coerce.number().default(listAnalysesQueryLimitDefault),
+  offset: zod.coerce.number().default(listAnalysesQueryOffsetDefault),
+});
+
+export const listAnalysesResponseAnalysesItemDetectionsItemConfidenceMin = 0;
+export const listAnalysesResponseAnalysesItemDetectionsItemConfidenceMax = 1;
+
+export const ListAnalysesResponse = zod.object({
+  analyses: zod.array(
+    zod.object({
+      id: zod.number(),
+      filename: zod.string(),
+      analyzed_at: zod.coerce.date(),
+      detection_count: zod.number(),
+      top_species: zod.string().nullish(),
+      top_confidence: zod.number().nullish(),
+      detections: zod.array(
+        zod.object({
+          start_time: zod.number(),
+          end_time: zod.number(),
+          scientific_name: zod.string(),
+          common_name: zod.string(),
+          confidence: zod
+            .number()
+            .min(listAnalysesResponseAnalysesItemDetectionsItemConfidenceMin)
+            .max(listAnalysesResponseAnalysesItemDetectionsItemConfidenceMax),
+        }),
+      ),
+      location: zod.object({
+        lat: zod.number().nullish(),
+        lon: zod.number().nullish(),
+        week: zod.number().nullish(),
+      }),
+      settings: zod.object({
+        min_conf: zod.number().optional(),
+        sensitivity: zod.number().optional(),
+        overlap: zod.number().optional(),
+      }),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Save an analysis result to history
+ */
+export const saveAnalysisBodyResultDetectionsItemConfidenceMin = 0;
+export const saveAnalysisBodyResultDetectionsItemConfidenceMax = 1;
+
+export const SaveAnalysisBody = zod.object({
+  result: zod.object({
+    file: zod.string(),
+    detections: zod.array(
+      zod.object({
+        start_time: zod.number(),
+        end_time: zod.number(),
+        scientific_name: zod.string(),
+        common_name: zod.string(),
+        confidence: zod
+          .number()
+          .min(saveAnalysisBodyResultDetectionsItemConfidenceMin)
+          .max(saveAnalysisBodyResultDetectionsItemConfidenceMax),
+      }),
+    ),
+    location: zod.object({
+      lat: zod.number().nullish(),
+      lon: zod.number().nullish(),
+      week: zod.number().nullish(),
+    }),
+    settings: zod.object({
+      min_conf: zod.number().optional(),
+      sensitivity: zod.number().optional(),
+      overlap: zod.number().optional(),
+    }),
+  }),
+  original_filename: zod.string(),
+});
+
+/**
+ * @summary Get a single analysis record
+ */
+export const GetAnalysisParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const getAnalysisResponseDetectionsItemConfidenceMin = 0;
+export const getAnalysisResponseDetectionsItemConfidenceMax = 1;
+
+export const GetAnalysisResponse = zod.object({
+  id: zod.number(),
+  filename: zod.string(),
+  analyzed_at: zod.coerce.date(),
+  detection_count: zod.number(),
+  top_species: zod.string().nullish(),
+  top_confidence: zod.number().nullish(),
+  detections: zod.array(
+    zod.object({
+      start_time: zod.number(),
+      end_time: zod.number(),
+      scientific_name: zod.string(),
+      common_name: zod.string(),
+      confidence: zod
+        .number()
+        .min(getAnalysisResponseDetectionsItemConfidenceMin)
+        .max(getAnalysisResponseDetectionsItemConfidenceMax),
+    }),
+  ),
+  location: zod.object({
+    lat: zod.number().nullish(),
+    lon: zod.number().nullish(),
+    week: zod.number().nullish(),
+  }),
+  settings: zod.object({
+    min_conf: zod.number().optional(),
+    sensitivity: zod.number().optional(),
+    overlap: zod.number().optional(),
+  }),
+});
+
+/**
+ * @summary Delete an analysis record
+ */
+export const DeleteAnalysisParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Aggregate statistics across all analyses
+ */
+export const GetStatsResponse = zod.object({
+  total_analyses: zod.number(),
+  total_detections: zod.number(),
+  unique_species: zod.number(),
+  avg_detections_per_analysis: zod.number(),
+});
+
+/**
+ * @summary Most frequently detected species
+ */
+export const getTopSpeciesQueryLimitDefault = 10;
+
+export const GetTopSpeciesQueryParams = zod.object({
+  limit: zod.coerce.number().default(getTopSpeciesQueryLimitDefault),
+});
+
+export const GetTopSpeciesResponse = zod.object({
+  species: zod.array(
+    zod.object({
+      scientific_name: zod.string(),
+      common_name: zod.string(),
+      count: zod.number(),
+      avg_confidence: zod.number(),
+    }),
+  ),
 });

@@ -10,13 +10,16 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: birdnet
+    description: BirdNET audio analysis operations
+  - name: history
+    description: Analysis history operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +27,214 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /birdnet/healthz:
+    get:
+      operationId: birdnetHealth
+      tags: [birdnet]
+      summary: BirdNET service health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /birdnet/analyze:
+    post:
+      operationId: analyzeAudio
+      tags: [birdnet]
+      summary: Analyze audio for bird species
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                lat:
+                  type: number
+                lon:
+                  type: number
+                week:
+                  type: integer
+                  minimum: 1
+                  maximum: 48
+                min_conf:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                  default: 0.1
+                sensitivity:
+                  type: number
+                  minimum: 0.5
+                  maximum: 1.5
+                  default: 1.0
+                overlap:
+                  type: number
+                  minimum: 0
+                  maximum: 2.9
+                  default: 0.0
+      responses:
+        "200":
+          description: Analysis results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Analysis failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /history:
+    get:
+      operationId: listAnalyses
+      tags: [history]
+      summary: List past analyses
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of analyses
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  analyses:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AnalysisRecord"
+                  total:
+                    type: integer
+                required:
+                  - analyses
+                  - total
+    post:
+      operationId: saveAnalysis
+      tags: [history]
+      summary: Save an analysis result to history
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveAnalysisBody"
+      responses:
+        "201":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisRecord"
+
+  /history/{id}:
+    get:
+      operationId: getAnalysis
+      tags: [history]
+      summary: Get a single analysis record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Analysis record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisRecord"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteAnalysis
+      tags: [history]
+      summary: Delete an analysis record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /history/stats:
+    get:
+      operationId: getStats
+      tags: [history]
+      summary: Aggregate statistics across all analyses
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stats"
+
+  /history/top-species:
+    get:
+      operationId: getTopSpecies
+      tags: [history]
+      summary: Most frequently detected species
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Top species
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  species:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SpeciesCount"
+                required:
+                  - species
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +245,154 @@ components:
       required:
         - status
 
+    Detection:
+      type: object
+      properties:
+        start_time:
+          type: number
+        end_time:
+          type: number
+        scientific_name:
+          type: string
+        common_name:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+      required:
+        - start_time
+        - end_time
+        - scientific_name
+        - common_name
+        - confidence
+
+    AnalysisLocation:
+      type: object
+      properties:
+        lat:
+          type: number
+          nullable: true
+        lon:
+          type: number
+          nullable: true
+        week:
+          type: integer
+          nullable: true
+
+    AnalysisSettings:
+      type: object
+      properties:
+        min_conf:
+          type: number
+        sensitivity:
+          type: number
+        overlap:
+          type: number
+
+    AnalysisResult:
+      type: object
+      properties:
+        file:
+          type: string
+        detections:
+          type: array
+          items:
+            $ref: "#/components/schemas/Detection"
+        location:
+          $ref: "#/components/schemas/AnalysisLocation"
+        settings:
+          $ref: "#/components/schemas/AnalysisSettings"
+      required:
+        - file
+        - detections
+        - location
+        - settings
+
+    SaveAnalysisBody:
+      type: object
+      properties:
+        result:
+          $ref: "#/components/schemas/AnalysisResult"
+        original_filename:
+          type: string
+      required:
+        - result
+        - original_filename
+
+    AnalysisRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        filename:
+          type: string
+        analyzed_at:
+          type: string
+          format: date-time
+        detection_count:
+          type: integer
+        top_species:
+          type: string
+          nullable: true
+        top_confidence:
+          type: number
+          nullable: true
+        detections:
+          type: array
+          items:
+            $ref: "#/components/schemas/Detection"
+        location:
+          $ref: "#/components/schemas/AnalysisLocation"
+        settings:
+          $ref: "#/components/schemas/AnalysisSettings"
+      required:
+        - id
+        - filename
+        - analyzed_at
+        - detection_count
+        - detections
+        - location
+        - settings
+
+    SpeciesCount:
+      type: object
+      properties:
+        scientific_name:
+          type: string
+        common_name:
+          type: string
+        count:
+          type: integer
+        avg_confidence:
+          type: number
+      required:
+        - scientific_name
+        - common_name
+        - count
+        - avg_confidence
+
+    Stats:
+      type: object
+      properties:
+        total_analyses:
+          type: integer
+        total_detections:
+          type: integer
+        unique_species:
+          type: integer
+        avg_detections_per_analysis:
+          type: number
+      required:
+        - total_analyses
+        - total_detections
+        - unique_species
+        - avg_detections_per_analysis
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error

@@ -8,3 +8,113 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface Detection {
+  start_time: number;
+  end_time: number;
+  scientific_name: string;
+  common_name: string;
+  /**
+   * @minimum 0
+   * @maximum 1
+   */
+  confidence: number;
+}
+
+export interface AnalysisLocation {
+  lat?: number | null;
+  lon?: number | null;
+  week?: number | null;
+}
+
+export interface AnalysisSettings {
+  min_conf?: number;
+  sensitivity?: number;
+  overlap?: number;
+}
+
+export interface AnalysisResult {
+  file: string;
+  detections: Detection[];
+  location: AnalysisLocation;
+  settings: AnalysisSettings;
+}
+
+export interface SaveAnalysisBody {
+  result: AnalysisResult;
+  original_filename: string;
+}
+
+export interface AnalysisRecord {
+  id: number;
+  filename: string;
+  analyzed_at: string;
+  detection_count: number;
+  top_species?: string | null;
+  top_confidence?: number | null;
+  detections: Detection[];
+  location: AnalysisLocation;
+  settings: AnalysisSettings;
+}
+
+export interface SpeciesCount {
+  scientific_name: string;
+  common_name: string;
+  count: number;
+  avg_confidence: number;
+}
+
+export interface Stats {
+  total_analyses: number;
+  total_detections: number;
+  unique_species: number;
+  avg_detections_per_analysis: number;
+}
+
+export interface ErrorResponse {
+  error: string;
+}
+
+export type AnalyzeAudioBody = {
+  file: Blob;
+  lat?: number;
+  lon?: number;
+  /**
+   * @minimum 1
+   * @maximum 48
+   */
+  week?: number;
+  /**
+   * @minimum 0
+   * @maximum 1
+   */
+  min_conf?: number;
+  /**
+   * @minimum 0.5
+   * @maximum 1.5
+   */
+  sensitivity?: number;
+  /**
+   * @minimum 0
+   * @maximum 2.9
+   */
+  overlap?: number;
+};
+
+export type ListAnalysesParams = {
+  limit?: number;
+  offset?: number;
+};
+
+export type ListAnalyses200 = {
+  analyses: AnalysisRecord[];
+  total: number;
+};
+
+export type GetTopSpeciesParams = {
+  limit?: number;
+};
+
+export type GetTopSpecies200 = {
+  species: SpeciesCount[];
+};
