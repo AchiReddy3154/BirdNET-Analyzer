@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Loader2, Settings2, Save, MapPin } from "lucide-react";
+import { Loader2, Settings2, Save, MapPin, Music, Bird } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -267,4 +267,3 @@ export default function Home() {
     </div>
   );
 }
-import { Bird } from "lucide-react";
