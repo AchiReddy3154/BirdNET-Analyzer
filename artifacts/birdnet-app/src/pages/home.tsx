@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { FileUpload } from "@/components/file-upload";
 import { useAnalyzeAudio, useSaveAnalysis } from "@workspace/api-client-react";
 import type { AnalysisResult } from "@workspace/api-client-react/src/generated/api.schemas";
@@ -7,9 +7,96 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Loader2, Settings2, Save, MapPin, Music, Bird } from "lucide-react";
+import { Loader2, Settings2, Save, MapPin, Music, Bird, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+const ANALYSIS_STAGES = [
+  { label: "Uploading audio file", duration: 2000 },
+  { label: "Reading audio chunks", duration: 4000 },
+  { label: "Running neural network", duration: 0 },
+  { label: "Processing detections", duration: 1000 },
+];
+
+function AnalysisProgress({ fileSizeMb }: { fileSizeMb: number }) {
+  const [stageIndex, setStageIndex] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  const startRef = useRef(Date.now());
+
+  const estimatedSeconds = Math.max(15, Math.round(fileSizeMb * 8));
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startRef.current) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    let cumulativeDelay = 0;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    for (let i = 1; i < ANALYSIS_STAGES.length - 1; i++) {
+      cumulativeDelay += ANALYSIS_STAGES[i - 1].duration;
+      const delay = cumulativeDelay;
+      const idx = i;
+      timers.push(setTimeout(() => setStageIndex(idx), delay));
+    }
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  const progressPct = Math.min(95, (elapsed / estimatedSeconds) * 100);
+
+  return (
+    <Card className="border-primary/20 shadow-md">
+      <CardContent className="p-6 space-y-5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <Loader2 className="w-5 h-5 text-primary animate-spin" />
+          </div>
+          <div>
+            <p className="font-semibold text-foreground">Analyzing your recording…</p>
+            <p className="text-sm text-muted-foreground">
+              {elapsed}s elapsed · ~{Math.max(1, estimatedSeconds - elapsed)}s remaining
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary rounded-full transition-all duration-1000 ease-linear"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground text-right">{Math.round(progressPct)}%</p>
+        </div>
+
+        <div className="space-y-2">
+          {ANALYSIS_STAGES.map((stage, i) => (
+            <div key={i} className={cn("flex items-center gap-2 text-sm transition-colors duration-300",
+              i < stageIndex ? "text-primary" :
+              i === stageIndex ? "text-foreground font-medium" :
+              "text-muted-foreground/50"
+            )}>
+              {i < stageIndex ? (
+                <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
+              ) : i === stageIndex ? (
+                <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+              ) : (
+                <div className="w-4 h-4 rounded-full border border-current shrink-0 opacity-30" />
+              )}
+              {stage.label}
+            </div>
+          ))}
+        </div>
+
+        <p className="text-xs text-muted-foreground/60 italic">
+          BirdNET processes audio in 3-second chunks on CPU — longer recordings take more time.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
@@ -37,19 +124,6 @@ export default function Home() {
     setResult(null);
     
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      if (lat) formData.append("lat", lat);
-      if (lon) formData.append("lon", lon);
-      formData.append("min_conf", minConf[0].toString());
-      formData.append("sensitivity", sensitivity[0].toString());
-      formData.append("overlap", overlap[0].toString());
-
-      // The hook uses customFetch, but since it's multipart/form-data, we need to pass the FormData directly
-      // Wait, the API spec says `AnalyzeAudioBody` is `{ file: Blob, lat?: number, ... }`
-      // The generated hook `analyzeAudio(data: BodyType<AnalyzeAudioBody>)` handles building the FormData internally.
-      // So we can just pass the object! Let's check `api.ts`.
-      
       const res = await analyzeMutation.mutateAsync({
         data: {
           file,
@@ -59,7 +133,7 @@ export default function Home() {
           sensitivity: sensitivity[0],
           overlap: overlap[0]
         }
-      } as any); // Type assertion if needed
+      } as any);
       
       setResult(res);
       toast.success(`Analysis complete! Found ${res.detections.length} detections.`);
@@ -102,6 +176,8 @@ export default function Home() {
         <div className="space-y-6">
           {!file ? (
             <FileUpload onFileSelect={handleFileSelect} />
+          ) : analyzing ? (
+            <AnalysisProgress fileSizeMb={file.size / 1024 / 1024} />
           ) : (
             <Card className="border-primary/20 shadow-md">
               <CardContent className="p-6 flex items-center justify-between">
@@ -118,15 +194,8 @@ export default function Home() {
                   <Button variant="outline" size="sm" onClick={() => { setFile(null); setResult(null); }}>
                     Change
                   </Button>
-                  <Button onClick={handleAnalyze} disabled={analyzing}>
-                    {analyzing ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Analyzing...
-                      </>
-                    ) : (
-                      "Analyze"
-                    )}
+                  <Button onClick={handleAnalyze}>
+                    Analyze
                   </Button>
                 </div>
               </CardContent>

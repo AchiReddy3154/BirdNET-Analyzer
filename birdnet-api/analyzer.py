@@ -1,5 +1,6 @@
 """
 BirdNET audio analysis wrapper using birdnetlib.
+Model is pre-loaded at import time to eliminate cold-start on first request.
 """
 from __future__ import annotations
 
@@ -9,15 +10,21 @@ from typing import Optional
 from birdnetlib import Recording
 from birdnetlib.analyzer import Analyzer
 
-
 _analyzer: Optional[Analyzer] = None
 
 
 def _get_analyzer() -> Analyzer:
     global _analyzer
     if _analyzer is None:
+        print("[BirdNET] Loading model...", flush=True)
         _analyzer = Analyzer()
+        print("[BirdNET] Model ready.", flush=True)
     return _analyzer
+
+
+# Pre-load model at import time so the first request is not penalised
+print("[BirdNET] Pre-warming model at startup...", flush=True)
+_get_analyzer()
 
 
 def analyze_audio(
@@ -29,43 +36,6 @@ def analyze_audio(
     sensitivity: float = 1.0,
     overlap: float = 0.0,
 ) -> dict:
-    """
-    Analyze an audio file with BirdNET and return structured results.
-
-    Parameters
-    ----------
-    audio_path : str
-        Absolute path to the audio file on disk.
-    lat, lon : float, optional
-        GPS coordinates for location-based species filtering.
-    week : int, optional
-        Week of the year (1–48) for seasonal filtering.
-    min_conf : float
-        Minimum confidence threshold (0–1). Default 0.1.
-    sensitivity : float
-        Detection sensitivity (0.5–1.5). Default 1.0.
-    overlap : float
-        Overlap between 3-second segments in seconds (0–2.9). Default 0.0.
-
-    Returns
-    -------
-    dict
-        {
-          "file": <original filename>,
-          "detections": [
-            {
-              "start_time": <float>,    # seconds
-              "end_time": <float>,      # seconds
-              "scientific_name": <str>,
-              "common_name": <str>,
-              "confidence": <float>,    # 0–1
-            },
-            ...
-          ],
-          "location": {"lat": ..., "lon": ..., "week": ...},
-          "settings": {"min_conf": ..., "sensitivity": ..., "overlap": ...},
-        }
-    """
     analyzer = _get_analyzer()
 
     use_location = lat is not None and lon is not None
