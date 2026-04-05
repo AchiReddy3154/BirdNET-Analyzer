@@ -3,7 +3,6 @@ import { cn } from "@/lib/utils";
 import { Bird, Activity, History, BarChart3, Sun, Moon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { motion } from "framer-motion";
-import { Cursor } from "@/components/cursor";
 import { Button } from "./ui/button";
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -18,63 +17,74 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-[100dvh] bg-background flex flex-col relative overflow-hidden font-sans">
-      <Cursor />
-      
-      {/* Background texture/motion */}
-      <div className="fixed inset-0 pointer-events-none z-0 opacity-30 dark:opacity-20 overflow-hidden mix-blend-soft-light">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/20 blur-[100px] animate-pulse" style={{ animationDuration: '8s' }} />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-secondary/20 blur-[120px] animate-pulse" style={{ animationDuration: '12s', animationDelay: '2s' }} />
+
+      {/* Background ambient glow */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <div className="absolute top-[-15%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/10 blur-[120px] animate-pulse" style={{ animationDuration: "9s" }} />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-secondary/10 blur-[140px] animate-pulse" style={{ animationDuration: "13s", animationDelay: "3s" }} />
       </div>
 
       {/* Desktop Header */}
       <header className="hidden sm:block border-b border-border/50 bg-card/60 backdrop-blur-xl sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300 shadow-inner">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300">
               <Bird className="w-5 h-5" />
             </div>
             <span className="font-serif text-xl font-bold tracking-tight text-foreground">BirdNET</span>
           </Link>
-          
+
           <nav className="flex items-center gap-1">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
-              
+
               return (
-                <Link
+                <motion.div
                   key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                    isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                  )}
+                  whileHover={{ scale: 1.06, y: -1 }}
+                  whileTap={{ scale: 0.96 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 20 }}
                 >
-                  {isActive && (
-                    <motion.div
-                      layoutId="nav-indicator"
-                      className="absolute inset-0 rounded-lg bg-muted z-0"
-                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                    />
-                  )}
-                  <span className="relative z-10 flex items-center gap-2">
-                    <Icon className={cn("w-4 h-4", isActive && "text-primary")} />
-                    {item.label}
-                  </span>
-                </Link>
+                  <Link
+                    href={item.href}
+                    className={cn(
+                      "relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors select-none",
+                      isActive
+                        ? "text-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    )}
+                  >
+                    {isActive && (
+                      <motion.div
+                        layoutId="nav-indicator"
+                        className="absolute inset-0 rounded-lg bg-muted z-0"
+                        transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
+                      />
+                    )}
+                    <span className="relative z-10 flex items-center gap-2">
+                      <Icon className={cn("w-4 h-4", isActive && "text-primary")} />
+                      {item.label}
+                    </span>
+                  </Link>
+                </motion.div>
               );
             })}
+
             <div className="w-px h-6 bg-border mx-2" />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="rounded-full w-9 h-9"
-            >
-              <Sun className="w-4 h-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-              <Moon className="absolute w-4 h-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-              <span className="sr-only">Toggle theme</span>
-            </Button>
+
+            <motion.div whileHover={{ scale: 1.1, rotate: 15 }} whileTap={{ scale: 0.9 }} transition={{ type: "spring", stiffness: 400, damping: 20 }}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                className="rounded-full w-9 h-9"
+              >
+                <Sun className="w-4 h-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                <Moon className="absolute w-4 h-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                <span className="sr-only">Toggle theme</span>
+              </Button>
+            </motion.div>
           </nav>
         </div>
       </header>
@@ -82,7 +92,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Mobile Header */}
       <header className="sm:hidden border-b border-border/50 bg-card/60 backdrop-blur-xl sticky top-0 z-50">
         <div className="px-4 h-14 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 group">
+          <Link href="/" className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
               <Bird className="w-4 h-4" />
             </div>
@@ -105,26 +115,36 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Mobile Bottom Tab Bar */}
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 border-t border-border/50 bg-card/80 backdrop-blur-xl z-50 pb-safe">
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 border-t border-border/50 bg-card/80 backdrop-blur-xl z-50">
         <div className="flex justify-around items-center h-16 px-2">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
-            
+
             return (
-              <Link
+              <motion.div
                 key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex flex-col items-center justify-center w-full h-full gap-1 transition-colors",
-                  isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                )}
+                whileTap={{ scale: 0.88, y: -2 }}
+                transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                className="flex-1"
               >
-                <div className={cn("relative p-1 rounded-full", isActive && "bg-primary/10")}>
-                  <Icon className="w-5 h-5" />
-                </div>
-                <span className="text-[10px] font-medium">{item.label}</span>
-              </Link>
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "flex flex-col items-center justify-center w-full h-16 gap-1 transition-colors",
+                    isActive ? "text-primary" : "text-muted-foreground"
+                  )}
+                >
+                  <motion.div
+                    animate={isActive ? { scale: 1.15, y: -2 } : { scale: 1, y: 0 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                    className={cn("p-1.5 rounded-full", isActive && "bg-primary/10")}
+                  >
+                    <Icon className="w-5 h-5" />
+                  </motion.div>
+                  <span className="text-[10px] font-medium">{item.label}</span>
+                </Link>
+              </motion.div>
             );
           })}
         </div>

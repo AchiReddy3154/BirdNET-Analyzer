@@ -7,12 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Loader2, Settings2, Save, MapPin, Music, Bird, CheckCircle2, Play, Pause, ExternalLink } from "lucide-react";
+import {
+  Loader2, Settings2, Save, MapPin, Music, Bird,
+  CheckCircle2, Play, Square, ExternalLink, ChevronDown, ChevronUp
+} from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWikipedia } from "@/hooks/use-wikipedia";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const ANALYSIS_STAGES = [
   { label: "Uploading audio file", duration: 2000 },
@@ -21,11 +23,28 @@ const ANALYSIS_STAGES = [
   { label: "Processing detections", duration: 1000 },
 ];
 
+function deduplicateDetections(detections: Detection[]): Detection[] {
+  const map = new Map<string, Detection>();
+  for (const d of detections) {
+    const existing = map.get(d.scientific_name);
+    if (!existing || d.confidence > existing.confidence) {
+      map.set(d.scientific_name, d);
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => b.confidence - a.confidence);
+}
+
+function confidenceLabel(conf: number) {
+  if (conf >= 0.8) return { label: "Very High", color: "text-emerald-400" };
+  if (conf >= 0.6) return { label: "High", color: "text-green-400" };
+  if (conf >= 0.4) return { label: "Moderate", color: "text-yellow-400" };
+  return { label: "Low", color: "text-orange-400" };
+}
+
 function AnalysisProgress({ fileSizeMb }: { fileSizeMb: number }) {
   const [stageIndex, setStageIndex] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const startRef = useRef(Date.now());
-
   const estimatedSeconds = Math.max(15, Math.round(fileSizeMb * 8));
 
   useEffect(() => {
@@ -54,7 +73,7 @@ function AnalysisProgress({ fileSizeMb }: { fileSizeMb: number }) {
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
       <CardContent className="p-6 space-y-6 relative z-10">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center shrink-0 shadow-inner">
+          <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center shrink-0">
             <Loader2 className="w-6 h-6 text-primary animate-spin" />
           </div>
           <div>
@@ -64,21 +83,17 @@ function AnalysisProgress({ fileSizeMb }: { fileSizeMb: number }) {
             </p>
           </div>
         </div>
-
-        <div className="space-y-2">
-          <div className="h-2 w-full bg-muted/50 rounded-full overflow-hidden shadow-inner">
-            <div
-              className="h-full bg-primary rounded-full transition-all duration-1000 ease-linear shadow-[0_0_10px_rgba(var(--primary),0.5)]"
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
+        <div className="h-2 w-full bg-muted/50 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-primary rounded-full transition-all duration-1000 ease-linear"
+            style={{ width: `${progressPct}%` }}
+          />
         </div>
-
         <div className="space-y-3 bg-background/50 rounded-xl p-4">
           {ANALYSIS_STAGES.map((stage, i) => (
             <div key={i} className={cn("flex items-center gap-3 text-sm transition-all duration-500",
               i < stageIndex ? "text-primary" :
-              i === stageIndex ? "text-foreground font-medium scale-105 origin-left" :
+              i === stageIndex ? "text-foreground font-medium" :
               "text-muted-foreground/40"
             )}>
               {i < stageIndex ? (
@@ -97,109 +112,153 @@ function AnalysisProgress({ fileSizeMb }: { fileSizeMb: number }) {
   );
 }
 
-function DetectionCard({ 
-  detection, 
-  index, 
-  onPlay, 
-  isActive 
-}: { 
-  detection: Detection; 
+function DetectionCard({
+  detection,
+  index,
+  onPlay,
+  activeKey,
+}: {
+  detection: Detection;
   index: number;
-  onPlay: (time: number) => void;
-  isActive: boolean;
+  onPlay: (startTime: number, endTime: number, key: string) => void;
+  activeKey: string | null;
 }) {
   const { data: wiki } = useWikipedia(detection.common_name);
   const [isOpen, setIsOpen] = useState(false);
+  const key = detection.scientific_name;
+  const isActive = activeKey === key;
+  const { label: confLabel, color: confColor } = confidenceLabel(detection.confidence);
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.1, duration: 0.5, type: "spring", bounce: 0.4 }}
+      transition={{ delay: index * 0.07, duration: 0.4, type: "spring", bounce: 0.3 }}
     >
       <Card className={cn(
-        "overflow-hidden transition-all duration-300",
-        isActive ? "border-primary shadow-[0_0_15px_rgba(var(--primary),0.3)] scale-[1.02]" : "hover:border-primary/50 hover:shadow-md border-transparent bg-card/60 backdrop-blur-sm"
+        "overflow-hidden transition-all duration-300 border",
+        isActive
+          ? "border-primary shadow-[0_0_18px_rgba(0,200,120,0.2)]"
+          : "border-border/40 bg-card/60 backdrop-blur-sm hover:border-primary/40 hover:shadow-md"
       )}>
-        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-          <div className="p-4 flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="flex items-center gap-4 flex-1">
-              <Button 
-                variant={isActive ? "default" : "secondary"} 
-                size="icon" 
-                className={cn("w-12 h-12 rounded-full shrink-0 transition-all", isActive && "animate-pulse")}
-                onClick={() => onPlay(detection.start_time)}
-              >
-                {isActive ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 ml-1 fill-current" />}
-              </Button>
-              <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
-                <h4 className="text-lg font-serif font-bold text-foreground truncate">{detection.common_name}</h4>
-                <p className="text-sm font-serif italic text-muted-foreground truncate">{detection.scientific_name}</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-6 sm:w-auto w-full justify-between sm:justify-end">
-              <div className="w-32">
-                <div className="flex justify-between text-xs mb-1.5">
-                  <span className="text-muted-foreground font-medium uppercase tracking-wider text-[10px]">Confidence</span>
-                  <span className="font-bold font-mono">{(detection.confidence * 100).toFixed(0)}%</span>
-                </div>
-                <div className="h-1.5 w-full bg-muted/50 rounded-full overflow-hidden">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${detection.confidence * 100}%` }}
-                    transition={{ delay: index * 0.1 + 0.3, duration: 1, ease: "easeOut" }}
-                    className={cn(
-                      "h-full rounded-full",
-                      detection.confidence > 0.8 ? "bg-primary shadow-[0_0_8px_rgba(var(--primary),0.8)]" : 
-                      detection.confidence > 0.4 ? "bg-secondary" : "bg-accent"
-                    )}
-                  />
-                </div>
-              </div>
+        {/* Main row */}
+        <div className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
 
-              <div className="text-xs font-mono text-muted-foreground bg-background/50 py-1.5 px-3 rounded-lg border border-border/50 whitespace-nowrap">
-                {detection.start_time.toFixed(1)}s - {detection.end_time.toFixed(1)}s
+          {/* Play / Stop button */}
+          <Button
+            variant={isActive ? "default" : "outline"}
+            size="icon"
+            className={cn(
+              "w-11 h-11 rounded-full shrink-0 transition-all",
+              isActive && "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
+            )}
+            title={isActive ? `Stop (${detection.start_time.toFixed(1)}s – ${detection.end_time.toFixed(1)}s)` : `Play ${detection.start_time.toFixed(1)}s – ${detection.end_time.toFixed(1)}s`}
+            onClick={() => onPlay(detection.start_time, detection.end_time, key)}
+          >
+            {isActive ? <Square className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 ml-0.5 fill-current" />}
+          </Button>
+
+          {/* Bird name */}
+          <div className="flex-1 min-w-0">
+            <h4 className="font-serif font-bold text-lg text-foreground leading-tight">{detection.common_name}</h4>
+            <p className="text-xs italic text-muted-foreground">{detection.scientific_name}</p>
+          </div>
+
+          {/* Confidence + timestamp */}
+          <div className="flex items-center gap-4 sm:gap-6 flex-wrap sm:flex-nowrap">
+            <div className="flex flex-col items-end gap-1 min-w-[90px]">
+              <div className="flex items-center gap-1.5">
+                <span className={cn("text-xs font-semibold", confColor)}>{confLabel}</span>
+                <span className="font-mono font-bold text-sm text-foreground">{(detection.confidence * 100).toFixed(0)}%</span>
+              </div>
+              <div className="h-1.5 w-24 bg-muted/50 rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${detection.confidence * 100}%` }}
+                  transition={{ delay: index * 0.07 + 0.2, duration: 0.8, ease: "easeOut" }}
+                  className={cn(
+                    "h-full rounded-full",
+                    detection.confidence >= 0.8 ? "bg-emerald-400" :
+                    detection.confidence >= 0.6 ? "bg-green-400" :
+                    detection.confidence >= 0.4 ? "bg-yellow-400" : "bg-orange-400"
+                  )}
+                />
               </div>
             </div>
+
+            <span className="text-xs font-mono text-muted-foreground bg-background/60 px-2.5 py-1.5 rounded-lg border border-border/50 whitespace-nowrap">
+              {detection.start_time.toFixed(1)}s – {detection.end_time.toFixed(1)}s
+            </span>
+
+            {/* Expand toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-8 h-8 rounded-full text-muted-foreground hover:text-foreground"
+              onClick={() => setIsOpen(v => !v)}
+            >
+              {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </Button>
           </div>
-          
-          <AnimatePresence>
-            {isOpen && wiki && (
-              <CollapsibleContent forceMount asChild>
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <div className="p-4 pt-0 border-t border-border/50 bg-muted/20">
-                    <div className="flex gap-4 mt-4">
-                      {wiki.thumbnail && (
-                        <div className="w-24 h-24 rounded-lg overflow-hidden shrink-0 shadow-md">
-                          <img src={wiki.thumbnail.source} alt={detection.common_name} className="w-full h-full object-cover" />
-                        </div>
-                      )}
-                      <div className="flex-1 text-sm space-y-3">
-                        <p className="text-muted-foreground leading-relaxed">{wiki.extract}</p>
-                        {wiki.content_urls?.desktop && (
-                          <a 
-                            href={wiki.content_urls.desktop.page} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-primary hover:text-primary/80 font-medium transition-colors"
-                          >
-                            Read more on Wikipedia <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
+        </div>
+
+        {/* Expanded bird details */}
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="overflow-hidden"
+            >
+              <div className="border-t border-border/40 bg-muted/10 p-4">
+                {wiki ? (
+                  <div className="flex gap-4">
+                    {wiki.thumbnail && (
+                      <div className="w-28 h-28 rounded-xl overflow-hidden shrink-0 shadow-md border border-border/30">
+                        <img src={wiki.thumbnail.source} alt={detection.common_name} className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <div className="flex-1 space-y-3 text-sm">
+                      {/* Quick fact badges */}
+                      <div className="flex flex-wrap gap-2">
+                        <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium border border-primary/20">
+                          {detection.scientific_name}
+                        </span>
+                        {wiki.extract.toLowerCase().includes("migrat") && (
+                          <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 text-xs font-medium border border-blue-500/20">Migratory</span>
+                        )}
+                        {wiki.extract.toLowerCase().includes("habitat") && (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 text-xs font-medium border border-emerald-500/20">Habitat info</span>
+                        )}
+                        {(wiki.extract.toLowerCase().includes("feed") || wiki.extract.toLowerCase().includes("diet") || wiki.extract.toLowerCase().includes("eat")) && (
+                          <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 text-xs font-medium border border-amber-500/20">Diet info</span>
                         )}
                       </div>
+                      <p className="text-muted-foreground leading-relaxed line-clamp-5">{wiki.extract}</p>
+                      {wiki.content_urls?.desktop && (
+                        <a
+                          href={wiki.content_urls.desktop.page}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-primary hover:text-primary/80 font-medium transition-colors text-xs"
+                        >
+                          Read full profile on Wikipedia <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
                     </div>
                   </div>
-                </motion.div>
-              </CollapsibleContent>
-            )}
-          </AnimatePresence>
-        </Collapsible>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="font-medium text-sm">{detection.common_name} <span className="italic text-muted-foreground">({detection.scientific_name})</span></p>
+                    <p className="text-xs text-muted-foreground">No Wikipedia entry found for this species.</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </Card>
     </motion.div>
   );
@@ -210,10 +269,10 @@ export default function Home() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [activeKey, setActiveKey] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
-  
+  const playStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [lat, setLat] = useState<string>("");
   const [lon, setLon] = useState<string>("");
   const [minConf, setMinConf] = useState([0.1]);
@@ -232,10 +291,8 @@ export default function Home() {
 
   const handleAnalyze = async () => {
     if (!file) return;
-    
     setAnalyzing(true);
     setResult(null);
-    
     try {
       const res = await analyzeMutation.mutateAsync({
         data: {
@@ -247,9 +304,9 @@ export default function Home() {
           overlap: overlap[0]
         }
       } as any);
-      
       setResult(res);
-      toast.success(`Analysis complete! Found ${res.detections.length} detections.`);
+      const unique = deduplicateDetections(res.detections);
+      toast.success(`Found ${unique.length} unique species across ${res.detections.length} detections.`);
     } catch (error: any) {
       console.error(error);
       toast.error("Failed to analyze audio.");
@@ -260,92 +317,105 @@ export default function Home() {
 
   const handleSave = async () => {
     if (!result || !file) return;
-    
     try {
-      await saveMutation.mutateAsync({
-        data: {
-          result,
-          original_filename: file.name
-        }
-      });
+      await saveMutation.mutateAsync({ data: { result, original_filename: file.name } });
       toast.success("Analysis saved to history!");
-    } catch (error) {
+    } catch {
       toast.error("Failed to save analysis.");
     }
   };
 
-  const playAtTime = (time: number) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = time;
-      audioRef.current.play();
+  // Play from startTime to endTime, then auto-stop
+  const playSegment = (startTime: number, endTime: number, key: string) => {
+    if (!audioRef.current) return;
+    // If already playing this segment, stop it
+    if (activeKey === key) {
+      audioRef.current.pause();
+      if (playStopRef.current) clearTimeout(playStopRef.current);
+      setActiveKey(null);
+      return;
     }
+    if (playStopRef.current) clearTimeout(playStopRef.current);
+    audioRef.current.currentTime = startTime;
+    audioRef.current.play();
+    setActiveKey(key);
+    const duration = Math.max(500, (endTime - startTime) * 1000);
+    playStopRef.current = setTimeout(() => {
+      audioRef.current?.pause();
+      setActiveKey(null);
+    }, duration);
   };
 
-  // Cleanup object url on unmount
   useEffect(() => {
     return () => {
       if (audioUrl) URL.revokeObjectURL(audioUrl);
+      if (playStopRef.current) clearTimeout(playStopRef.current);
     };
   }, [audioUrl]);
 
+  const uniqueDetections = result ? deduplicateDetections(result.detections) : [];
+
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-12">
-      <div className="text-center space-y-4 py-12 relative">
-        <motion.div 
+      {/* Hero */}
+      <div className="text-center space-y-4 py-10 relative">
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
+          transition={{ duration: 0.7, ease: "easeOut" }}
         >
           <h1 className="text-5xl md:text-7xl font-serif font-bold text-foreground tracking-tight leading-tight">
             Listen to the <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">forest</span>.
           </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mt-6 font-light">
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mt-5 font-light">
             Upload a field recording. Let BirdNET uncover the hidden life in your audio.
           </p>
         </motion.div>
       </div>
 
-      <div className="grid md:grid-cols-[1fr_320px] gap-8">
+      <div className="grid md:grid-cols-[1fr_300px] gap-8">
         <div className="space-y-6">
+          {/* File drop / loading / file card */}
           {!file ? (
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}>
+            <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }}>
               <FileUpload onFileSelect={handleFileSelect} />
             </motion.div>
           ) : analyzing ? (
             <AnalysisProgress fileSizeMb={file.size / 1024 / 1024} />
           ) : (
-            <Card className="border-primary/20 bg-card/60 backdrop-blur-md overflow-hidden">
-              <CardContent className="p-6">
+            <Card className="border-primary/20 bg-card/60 backdrop-blur-md">
+              <CardContent className="p-5">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-4 w-full sm:w-auto truncate">
-                    <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0 shadow-inner">
-                      <Music className="w-7 h-7" />
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                      <Music className="w-6 h-6" />
                     </div>
-                    <div className="truncate flex-1">
-                      <h3 className="font-serif font-bold text-lg truncate" title={file.name}>{file.name}</h3>
-                      <p className="text-sm text-muted-foreground font-mono mt-1">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                    <div className="min-w-0">
+                      <h3 className="font-serif font-bold truncate" title={file.name}>{file.name}</h3>
+                      <p className="text-xs text-muted-foreground font-mono">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 w-full sm:w-auto">
-                    <Button variant="outline" className="flex-1 sm:flex-none border-border/50" onClick={() => { setFile(null); setResult(null); }}>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={() => { setFile(null); setResult(null); }}>
                       Change
                     </Button>
-                    <Button className="flex-1 sm:flex-none bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20" onClick={handleAnalyze}>
+                    <Button size="sm" className="flex-1 sm:flex-none bg-primary shadow-lg shadow-primary/20" onClick={handleAnalyze}>
                       Analyze
                     </Button>
                   </div>
                 </div>
-                
+
+                {/* Audio player — shown after results */}
                 {audioUrl && result && (
-                  <div className="mt-6 pt-6 border-t border-border/50">
-                    <audio 
-                      ref={audioRef} 
-                      src={audioUrl} 
-                      onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-                      onPlay={() => setIsPlaying(true)}
-                      onPause={() => setIsPlaying(false)}
-                      controls 
-                      className="w-full h-12 outline-none custom-audio-player" 
+                  <div className="mt-4 pt-4 border-t border-border/40">
+                    <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wider">Playback — click a species below to hear its segment</p>
+                    <audio
+                      ref={audioRef}
+                      src={audioUrl}
+                      onPause={() => { if (playStopRef.current) clearTimeout(playStopRef.current); setActiveKey(null); }}
+                      controls
+                      className="w-full h-10 outline-none"
+                      style={{ colorScheme: "dark" }}
                     />
                   </div>
                 )}
@@ -353,132 +423,122 @@ export default function Home() {
             </Card>
           )}
 
-          {result && (
-            <div className="space-y-6 pt-4">
-              <div className="flex items-end justify-between border-b border-border/50 pb-4">
+          {/* Results */}
+          {result && uniqueDetections.length > 0 && (
+            <div className="space-y-5">
+              {/* Header + species summary chips */}
+              <div className="flex items-end justify-between pb-3 border-b border-border/40">
                 <div>
-                  <h2 className="text-3xl font-serif font-bold">Field Notes</h2>
-                  <p className="text-muted-foreground mt-1 font-mono text-sm">{result.detections.length} detections found</p>
+                  <h2 className="text-2xl font-serif font-bold">Field Notes</h2>
+                  <p className="text-muted-foreground text-sm mt-0.5">
+                    {uniqueDetections.length} unique {uniqueDetections.length === 1 ? "species" : "species"} · {result.detections.length} total detections
+                  </p>
                 </div>
-                <Button onClick={handleSave} disabled={saveMutation.isPending} variant="secondary" className="shadow-md">
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Record
+                <Button onClick={handleSave} disabled={saveMutation.isPending} variant="secondary" size="sm" className="shrink-0">
+                  <Save className="w-3.5 h-3.5 mr-1.5" />
+                  Save
                 </Button>
               </div>
 
-              {result.detections.length === 0 ? (
-                <div className="text-center py-16 bg-card/30 backdrop-blur-sm rounded-2xl border border-dashed border-border/50">
-                  <Bird className="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" />
-                  <h3 className="text-xl font-serif font-medium text-muted-foreground">The forest is quiet</h3>
-                  <p className="text-sm text-muted-foreground/60 mt-2">No birds detected. Try lowering minimum confidence.</p>
-                </div>
-              ) : (
-                <div className="grid gap-4">
-                  {result.detections.map((d, i) => {
-                    const isActive = isPlaying && currentTime >= d.start_time && currentTime <= d.end_time;
-                    return (
-                      <DetectionCard 
-                        key={`${d.scientific_name}-${d.start_time}`} 
-                        detection={d} 
-                        index={i} 
-                        onPlay={playAtTime}
-                        isActive={isActive}
-                      />
-                    );
-                  })}
-                </div>
-              )}
+              {/* Quick-glance species chips */}
+              <div className="flex flex-wrap gap-2">
+                {uniqueDetections.map((d) => {
+                  const { color } = confidenceLabel(d.confidence);
+                  return (
+                    <span
+                      key={d.scientific_name}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border",
+                        "bg-card/70 border-border/50 text-foreground"
+                      )}
+                    >
+                      <span className={cn("w-1.5 h-1.5 rounded-full bg-current", color)} />
+                      {d.common_name}
+                    </span>
+                  );
+                })}
+              </div>
+
+              {/* Detailed cards — one per unique species, sorted by confidence */}
+              <div className="grid gap-3">
+                {uniqueDetections.map((d, i) => (
+                  <DetectionCard
+                    key={d.scientific_name}
+                    detection={d}
+                    index={i}
+                    onPlay={playSegment}
+                    activeKey={activeKey}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {result && uniqueDetections.length === 0 && (
+            <div className="text-center py-16 bg-card/30 rounded-2xl border border-dashed border-border/50">
+              <Bird className="w-14 h-14 mx-auto text-muted-foreground/30 mb-4" />
+              <h3 className="text-xl font-serif text-muted-foreground">The forest is quiet</h3>
+              <p className="text-sm text-muted-foreground/60 mt-2">No birds detected. Try lowering the minimum confidence.</p>
             </div>
           )}
         </div>
 
-        <div className="space-y-6">
+        {/* Settings sidebar */}
+        <div className="space-y-5">
           <Card className="bg-card/60 backdrop-blur-sm border-border/50">
             <CardHeader className="pb-4 border-b border-border/50">
-              <CardTitle className="text-lg font-serif flex items-center gap-2">
-                <Settings2 className="w-5 h-5 text-primary" />
+              <CardTitle className="text-base font-serif flex items-center gap-2">
+                <Settings2 className="w-4 h-4 text-primary" />
                 Parameters
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6 pt-6">
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <Label className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Min Confidence</Label>
-                  <span className="text-sm text-foreground font-mono bg-background/50 px-2 py-0.5 rounded">{minConf[0].toFixed(2)}</span>
+            <CardContent className="space-y-5 pt-5">
+              {[
+                { label: "Min Confidence", value: minConf, onChange: setMinConf, min: 0, max: 1, step: 0.05, display: minConf[0].toFixed(2) },
+                { label: "Sensitivity", value: sensitivity, onChange: setSensitivity, min: 0.5, max: 1.5, step: 0.1, display: sensitivity[0].toFixed(2) },
+                { label: "Overlap", value: overlap, onChange: setOverlap, min: 0, max: 2.9, step: 0.1, display: `${overlap[0].toFixed(1)}s` },
+              ].map(({ label, value, onChange, min, max, step, display }) => (
+                <div key={label} className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <Label className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">{label}</Label>
+                    <span className="text-xs font-mono bg-background/50 px-2 py-0.5 rounded text-foreground">{display}</span>
+                  </div>
+                  <Slider value={value} onValueChange={onChange} min={min} max={max} step={step} />
                 </div>
-                <Slider value={minConf} onValueChange={setMinConf} max={1} step={0.05} className="py-2" />
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <Label className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Sensitivity</Label>
-                  <span className="text-sm text-foreground font-mono bg-background/50 px-2 py-0.5 rounded">{sensitivity[0].toFixed(2)}</span>
-                </div>
-                <Slider value={sensitivity} onValueChange={setSensitivity} min={0.5} max={1.5} step={0.1} className="py-2" />
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <Label className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Overlap</Label>
-                  <span className="text-sm text-foreground font-mono bg-background/50 px-2 py-0.5 rounded">{overlap[0].toFixed(1)}s</span>
-                </div>
-                <Slider value={overlap} onValueChange={setOverlap} max={2.9} step={0.1} className="py-2" />
-              </div>
+              ))}
             </CardContent>
           </Card>
 
           <Card className="bg-card/60 backdrop-blur-sm border-border/50">
             <CardHeader className="pb-4 border-b border-border/50">
-              <CardTitle className="text-lg font-serif flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-primary" />
+              <CardTitle className="text-base font-serif flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-primary" />
                 Location
               </CardTitle>
-              <CardDescription className="text-xs">Optional context for accuracy</CardDescription>
+              <CardDescription className="text-xs">Improves species filtering</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-5 pt-6">
-              <div className="space-y-2">
-                <Label className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Latitude</Label>
-                <Input 
-                  placeholder="42.500" 
-                  value={lat} 
-                  onChange={e => setLat(e.target.value)} 
-                  type="number"
-                  step="any"
-                  className="bg-background/50 font-mono"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Longitude</Label>
-                <Input 
-                  placeholder="-76.200" 
-                  value={lon} 
-                  onChange={e => setLon(e.target.value)}
-                  type="number"
-                  step="any"
-                  className="bg-background/50 font-mono"
-                />
-              </div>
+            <CardContent className="space-y-4 pt-5">
+              {[
+                { label: "Latitude", value: lat, onChange: setLat, placeholder: "42.500" },
+                { label: "Longitude", value: lon, onChange: setLon, placeholder: "-76.200" },
+              ].map(({ label, value, onChange, placeholder }) => (
+                <div key={label} className="space-y-1.5">
+                  <Label className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">{label}</Label>
+                  <Input
+                    placeholder={placeholder}
+                    value={value}
+                    onChange={e => onChange(e.target.value)}
+                    type="number"
+                    step="any"
+                    className="bg-background/50 font-mono text-sm"
+                  />
+                </div>
+              ))}
             </CardContent>
           </Card>
         </div>
       </div>
-      
-      <style>{`
-        /* Custom Audio Player Styling */
-        .custom-audio-player::-webkit-media-controls-panel {
-          background-color: hsl(var(--muted) / 0.5);
-          border-radius: var(--radius);
-        }
-        .custom-audio-player::-webkit-media-controls-current-time-display,
-        .custom-audio-player::-webkit-media-controls-time-remaining-display {
-          color: hsl(var(--foreground));
-          font-family: var(--font-mono);
-          font-size: 12px;
-        }
-        .dark .custom-audio-player {
-          color-scheme: dark;
-        }
-      `}</style>
     </div>
   );
 }
