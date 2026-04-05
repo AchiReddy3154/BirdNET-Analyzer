@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Outfit:wght@100..900&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -73,67 +73,65 @@
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-sans antialiased bg-background text-foreground selection:bg-primary/30;
   }
 }
 
-/* LIGHT MODE */
+/* LIGHT MODE: Morning mist over a wetland (soft, cool, airy) */
 :root {
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
-
   --opaque-button-border-intensity: -8;
-
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  --background: 60 20% 98%;
-  --foreground: 20 14% 20%;
-  --border: 60 10% 90%;
+  --background: 190 30% 96%; /* Soft misty cyan/blue */
+  --foreground: 200 40% 15%; /* Deep forest slate */
+  --border: 190 20% 88%;
 
-  --card: 0 0% 100%;
-  --card-foreground: 20 14% 20%;
-  --card-border: 60 10% 90%;
+  --card: 190 35% 99%;
+  --card-foreground: 200 40% 15%;
+  --card-border: 190 20% 88%;
 
-  --sidebar: 60 20% 98%;
-  --sidebar-foreground: 20 14% 20%;
-  --sidebar-border: 60 10% 90%;
-  --sidebar-primary: 154 35% 35%;
+  --sidebar: 190 35% 99%;
+  --sidebar-foreground: 200 40% 15%;
+  --sidebar-border: 190 20% 88%;
+  --sidebar-primary: 160 40% 40%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 60 15% 94%;
-  --sidebar-accent-foreground: 20 14% 20%;
-  --sidebar-ring: 154 35% 35%;
+  --sidebar-accent: 190 20% 92%;
+  --sidebar-accent-foreground: 200 40% 15%;
+  --sidebar-ring: 160 40% 40%;
 
-  --popover: 0 0% 100%;
-  --popover-foreground: 20 14% 20%;
-  --popover-border: 60 10% 90%;
+  --popover: 190 35% 99%;
+  --popover-foreground: 200 40% 15%;
+  --popover-border: 190 20% 88%;
 
-  --primary: 154 35% 35%;
+  --primary: 160 40% 40%; /* Soft wetland green */
   --primary-foreground: 0 0% 100%;
   
-  --secondary: 200 40% 50%;
+  --secondary: 200 30% 60%; /* Cool mist blue */
   --secondary-foreground: 0 0% 100%;
   
-  --muted: 60 15% 94%;
-  --muted-foreground: 20 10% 40%;
+  --muted: 190 20% 92%;
+  --muted-foreground: 200 20% 45%;
   
-  --accent: 40 40% 60%;
+  --accent: 40 50% 65%; /* Soft sunrise gold */
   --accent-foreground: 0 0% 100%;
 
   --destructive: 0 60% 50%;
   --destructive-foreground: 0 0% 100%;
 
-  --input: 60 10% 85%;
-  --ring: 154 35% 35%;
+  --input: 190 20% 85%;
+  --ring: 160 40% 40%;
 
-  --chart-1: 154 35% 35%;
-  --chart-2: 200 40% 50%;
-  --chart-3: 40 40% 60%;
+  --chart-1: 160 40% 40%;
+  --chart-2: 200 30% 60%;
+  --chart-3: 40 50% 65%;
   --chart-4: 25 30% 45%;
   --chart-5: 180 20% 60%;
 
   --app-font-sans: 'DM Sans', sans-serif;
-  --app-font-serif: 'Outfit', sans-serif;
+  --app-font-serif: 'Playfair Display', serif;
   --app-font-mono: 'Space Mono', monospace;
   
   --radius: 0.75rem;
@@ -147,57 +145,56 @@
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
+/* DARK MODE: Dark forest (deep greens, earthy blacks, bioluminescent accents) */
 .dark {
   --button-outline: rgba(255,255,255, .10);
   --badge-outline: rgba(255,255,255, .05);
-
   --opaque-button-border-intensity: 9;
-
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  --background: 20 14% 15%;
-  --foreground: 60 20% 95%;
-  --border: 20 10% 25%;
+  --background: 160 30% 6%; /* Earthy black/green */
+  --foreground: 160 10% 90%;
+  --border: 160 20% 14%;
 
-  --card: 20 14% 18%;
-  --card-foreground: 60 20% 95%;
-  --card-border: 20 10% 25%;
+  --card: 160 25% 9%;
+  --card-foreground: 160 10% 90%;
+  --card-border: 160 20% 16%;
 
-  --sidebar: 20 14% 15%;
-  --sidebar-foreground: 60 20% 95%;
-  --sidebar-border: 20 10% 25%;
-  --sidebar-primary: 154 35% 45%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 20 10% 25%;
-  --sidebar-accent-foreground: 60 20% 95%;
-  --sidebar-ring: 154 35% 45%;
+  --sidebar: 160 30% 6%;
+  --sidebar-foreground: 160 10% 90%;
+  --sidebar-border: 160 20% 14%;
+  --sidebar-primary: 150 60% 45%;
+  --sidebar-primary-foreground: 160 30% 6%;
+  --sidebar-accent: 160 25% 12%;
+  --sidebar-accent-foreground: 160 10% 90%;
+  --sidebar-ring: 150 60% 45%;
 
-  --popover: 20 14% 18%;
-  --popover-foreground: 60 20% 95%;
-  --popover-border: 20 10% 25%;
+  --popover: 160 25% 9%;
+  --popover-foreground: 160 10% 90%;
+  --popover-border: 160 20% 16%;
 
-  --primary: 154 35% 45%;
-  --primary-foreground: 0 0% 100%;
+  --primary: 150 60% 45%; /* Bioluminescent green */
+  --primary-foreground: 160 30% 6%;
   
-  --secondary: 200 40% 60%;
+  --secondary: 190 40% 40%; /* Deep water cyan */
   --secondary-foreground: 0 0% 100%;
   
-  --muted: 20 10% 25%;
-  --muted-foreground: 60 10% 70%;
+  --muted: 160 25% 12%;
+  --muted-foreground: 160 15% 60%;
   
-  --accent: 40 40% 50%;
-  --accent-foreground: 0 0% 100%;
+  --accent: 170 70% 55%; /* Vibrant glowing teal */
+  --accent-foreground: 160 30% 6%;
 
   --destructive: 0 60% 50%;
   --destructive-foreground: 0 0% 100%;
 
-  --input: 20 10% 30%;
-  --ring: 154 35% 45%;
+  --input: 160 20% 16%;
+  --ring: 150 60% 45%;
 
-  --chart-1: 154 35% 45%;
-  --chart-2: 200 40% 60%;
-  --chart-3: 40 40% 50%;
+  --chart-1: 150 60% 45%;
+  --chart-2: 190 40% 40%;
+  --chart-3: 170 70% 55%;
   --chart-4: 25 30% 55%;
   --chart-5: 180 20% 50%;
 }
