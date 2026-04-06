@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { FileUpload } from "@/components/file-upload";
 import { useAnalyzeAudio, useSaveAnalysis } from "@workspace/api-client-react";
-import type { AnalysisResult, Detection } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { AnalysisResult, Detection } from "@/context/analysis";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWikipedia } from "@/hooks/use-wikipedia";
+import { useAnalysisSession } from "@/context/analysis";
 
 const ANALYSIS_STAGES = [
   { label: "Uploading audio file", duration: 2000 },
@@ -265,28 +266,36 @@ function DetectionCard({
 }
 
 export default function Home() {
-  const [file, setFile] = useState<File | null>(null);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const {
+    file,
+    audioUrl,
+    analyzing,
+    result,
+    activeKey,
+    lat,
+    lon,
+    minConf,
+    sensitivity,
+    overlap,
+    selectFile,
+    clearFile,
+    setAnalyzing,
+    setResult,
+    setActiveKey,
+    setLat,
+    setLon,
+    setMinConf,
+    setSensitivity,
+    setOverlap,
+  } = useAnalysisSession();
   const audioRef = useRef<HTMLAudioElement>(null);
   const playStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const [lat, setLat] = useState<string>("");
-  const [lon, setLon] = useState<string>("");
-  const [minConf, setMinConf] = useState([0.1]);
-  const [sensitivity, setSensitivity] = useState([1.0]);
-  const [overlap, setOverlap] = useState([0.0]);
 
   const analyzeMutation = useAnalyzeAudio();
   const saveMutation = useSaveAnalysis();
 
   const handleFileSelect = (selectedFile: File) => {
-    setFile(selectedFile);
-    setResult(null);
-    if (audioUrl) URL.revokeObjectURL(audioUrl);
-    setAudioUrl(URL.createObjectURL(selectedFile));
+    selectFile(selectedFile);
   };
 
   const handleAnalyze = async () => {
@@ -348,152 +357,211 @@ export default function Home() {
 
   useEffect(() => {
     return () => {
-      if (audioUrl) URL.revokeObjectURL(audioUrl);
       if (playStopRef.current) clearTimeout(playStopRef.current);
     };
-  }, [audioUrl]);
+  }, []);
 
   const uniqueDetections = result ? deduplicateDetections(result.detections) : [];
+  const sessionState = analyzing
+    ? "Analyzing"
+    : result
+      ? "Complete"
+      : file
+        ? "Ready to analyze"
+        : "Awaiting upload";
+  const fileSummary = file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : "No file selected";
+  const detectionSummary = result
+    ? `${uniqueDetections.length} unique / ${result.detections.length} total`
+    : "No detections yet";
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-12">
-      {/* Hero */}
-      <div className="text-center space-y-4 py-10 relative">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: "easeOut" }}
-        >
-          <h1 className="text-5xl md:text-7xl font-serif font-bold text-foreground tracking-tight leading-tight">
-            Listen to the <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">forest</span>.
-          </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mt-5 font-light">
-            Upload a field recording. Let BirdNET uncover the hidden life in your audio.
-          </p>
-        </motion.div>
-      </div>
+    <div className="max-w-6xl mx-auto w-full h-full space-y-5">
+      <section className="relative overflow-hidden rounded-[2rem] border border-border/60 bg-card/60 backdrop-blur-xl px-5 py-4 sm:px-6">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-secondary/10 pointer-events-none" />
+        <div className="relative z-10 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: "easeOut" }}
+            className="space-y-3 max-w-2xl"
+          >
+            <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+              BirdNET analysis workspace
+            </span>
+            <div className="space-y-3">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold tracking-tight leading-tight">
+                Listen to the <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">forest</span>.
+              </h1>
+              <p className="text-sm sm:text-base text-muted-foreground max-w-2xl font-light">
+                Upload a field recording, tune detection settings, and review species in a compact view.
+              </p>
+            </div>
+          </motion.div>
 
-      <div className="grid md:grid-cols-[1fr_300px] gap-8">
-        <div className="space-y-6">
-          {/* File drop / loading / file card */}
-          {!file ? (
-            <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }}>
-              <FileUpload onFileSelect={handleFileSelect} />
-            </motion.div>
-          ) : analyzing ? (
-            <AnalysisProgress fileSizeMb={file.size / 1024 / 1024} />
-          ) : (
-            <Card className="border-primary/20 bg-card/60 backdrop-blur-md">
-              <CardContent className="p-5">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                      <Music className="w-6 h-6" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full xl:max-w-2xl">
+            {[
+              { label: "Session", value: sessionState },
+              { label: "File", value: fileSummary },
+              { label: "Detections", value: detectionSummary },
+            ].map((item) => (
+              <Card key={item.label} className="bg-background/55 border-border/50 shadow-none">
+                <CardContent className="p-4 space-y-1.5">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">{item.label}</p>
+                  <p className="text-sm font-medium text-foreground leading-snug">{item.value}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_330px] items-start h-[calc(100%-7rem)] min-h-0">
+        <div className="space-y-5 min-h-0 overflow-hidden">
+          <Card className="border-primary/20 bg-card/60 backdrop-blur-md overflow-hidden">
+            <CardHeader className="border-b border-border/50 pb-4">
+              <CardTitle className="text-base font-serif flex items-center gap-2">
+                <Music className="w-4 h-4 text-primary" />
+                Analysis workspace
+              </CardTitle>
+              <CardDescription>
+                Add a recording, then run BirdNET on the selected file.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
+              {!file ? (
+                <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}>
+                  <FileUpload onFileSelect={handleFileSelect} />
+                </motion.div>
+              ) : analyzing ? (
+                <AnalysisProgress fileSizeMb={file.size / 1024 / 1024} />
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-border/50 bg-background/45 p-4">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                        <Music className="w-6 h-6" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-serif font-bold truncate" title={file.name}>{file.name}</h3>
+                        <p className="text-xs text-muted-foreground font-mono">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <h3 className="font-serif font-bold truncate" title={file.name}>{file.name}</h3>
-                      <p className="text-xs text-muted-foreground font-mono">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={clearFile}>
+                        Change file
+                      </Button>
+                      <Button size="sm" className="flex-1 sm:flex-none bg-primary shadow-lg shadow-primary/20" onClick={handleAnalyze}>
+                        Analyze recording
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={() => { setFile(null); setResult(null); }}>
-                      Change
-                    </Button>
-                    <Button size="sm" className="flex-1 sm:flex-none bg-primary shadow-lg shadow-primary/20" onClick={handleAnalyze}>
-                      Analyze
-                    </Button>
-                  </div>
+
+                  {audioUrl && result && (
+                    <div className="space-y-2 rounded-2xl border border-border/50 bg-background/45 p-4">
+                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+                        Playback - click a species below to hear its segment
+                      </p>
+                      <audio
+                        ref={audioRef}
+                        src={audioUrl}
+                        onPause={() => { if (playStopRef.current) clearTimeout(playStopRef.current); setActiveKey(null); }}
+                        controls
+                        className="w-full h-10 outline-none"
+                        style={{ colorScheme: "dark" }}
+                      />
+                    </div>
+                  )}
+
+                  {result?.spectrogram_image && (
+                    <div className="space-y-2 rounded-2xl border border-border/50 bg-background/45 p-4">
+                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+                        Spectrogram
+                      </p>
+                      <div className="overflow-hidden rounded-xl border border-border/40 bg-muted/20">
+                        <img
+                          src={result.spectrogram_image}
+                          alt="Spectrogram generated from the uploaded audio"
+                          className="w-full h-auto block"
+                          loading="lazy"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
+              )}
+            </CardContent>
+          </Card>
 
-                {/* Audio player — shown after results */}
-                {audioUrl && result && (
-                  <div className="mt-4 pt-4 border-t border-border/40">
-                    <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wider">Playback — click a species below to hear its segment</p>
-                    <audio
-                      ref={audioRef}
-                      src={audioUrl}
-                      onPause={() => { if (playStopRef.current) clearTimeout(playStopRef.current); setActiveKey(null); }}
-                      controls
-                      className="w-full h-10 outline-none"
-                      style={{ colorScheme: "dark" }}
-                    />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Results */}
           {result && uniqueDetections.length > 0 && (
-            <div className="space-y-5">
-              {/* Header + species summary chips */}
-              <div className="flex items-end justify-between pb-3 border-b border-border/40">
+            <Card className="bg-card/60 backdrop-blur-md border-border/50 overflow-hidden">
+              <CardHeader className="flex flex-row items-start justify-between gap-4 border-b border-border/50 pb-4">
                 <div>
-                  <h2 className="text-2xl font-serif font-bold">Field Notes</h2>
-                  <p className="text-muted-foreground text-sm mt-0.5">
+                  <CardTitle className="text-2xl font-serif">Field Notes</CardTitle>
+                  <CardDescription className="mt-0.5">
                     {uniqueDetections.length} unique {uniqueDetections.length === 1 ? "species" : "species"} · {result.detections.length} total detections
-                  </p>
+                  </CardDescription>
                 </div>
                 <Button onClick={handleSave} disabled={saveMutation.isPending} variant="secondary" size="sm" className="shrink-0">
                   <Save className="w-3.5 h-3.5 mr-1.5" />
                   Save
                 </Button>
-              </div>
+              </CardHeader>
 
-              {/* Quick-glance species chips */}
-              <div className="flex flex-wrap gap-2">
-                {uniqueDetections.map((d) => {
-                  const { color } = confidenceLabel(d.confidence);
-                  return (
-                    <span
+              <CardContent className="p-4 space-y-4 max-h-[calc(100vh-28rem)] overflow-y-auto">
+                <div className="flex flex-wrap gap-2">
+                  {uniqueDetections.map((d) => {
+                    const { color } = confidenceLabel(d.confidence);
+                    return (
+                      <span
+                        key={d.scientific_name}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border",
+                          "bg-card/70 border-border/50 text-foreground"
+                        )}
+                      >
+                        <span className={cn("w-1.5 h-1.5 rounded-full bg-current", color)} />
+                        {d.common_name}
+                      </span>
+                    );
+                  })}
+                </div>
+
+                <div className="grid gap-2">
+                  {uniqueDetections.map((d, i) => (
+                    <DetectionCard
                       key={d.scientific_name}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border",
-                        "bg-card/70 border-border/50 text-foreground"
-                      )}
-                    >
-                      <span className={cn("w-1.5 h-1.5 rounded-full bg-current", color)} />
-                      {d.common_name}
-                    </span>
-                  );
-                })}
-              </div>
-
-              {/* Detailed cards — one per unique species, sorted by confidence */}
-              <div className="grid gap-3">
-                {uniqueDetections.map((d, i) => (
-                  <DetectionCard
-                    key={d.scientific_name}
-                    detection={d}
-                    index={i}
-                    onPlay={playSegment}
-                    activeKey={activeKey}
-                  />
-                ))}
-              </div>
-            </div>
+                      detection={d}
+                      index={i}
+                      onPlay={playSegment}
+                      activeKey={activeKey}
+                    />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           )}
 
-          {/* Empty state */}
           {result && uniqueDetections.length === 0 && (
-            <div className="text-center py-16 bg-card/30 rounded-2xl border border-dashed border-border/50">
-              <Bird className="w-14 h-14 mx-auto text-muted-foreground/30 mb-4" />
-              <h3 className="text-xl font-serif text-muted-foreground">The forest is quiet</h3>
-              <p className="text-sm text-muted-foreground/60 mt-2">No birds detected. Try lowering the minimum confidence.</p>
-            </div>
+            <Card className="bg-card/60 backdrop-blur-md border-dashed border-border/50">
+              <CardContent className="text-center py-16">
+                <Bird className="w-14 h-14 mx-auto text-muted-foreground/30 mb-4" />
+                <h3 className="text-xl font-serif text-muted-foreground">The forest is quiet</h3>
+                <p className="text-sm text-muted-foreground/60 mt-2">No birds detected. Try lowering the minimum confidence.</p>
+              </CardContent>
+            </Card>
           )}
         </div>
 
-        {/* Settings sidebar */}
-        <div className="space-y-5">
+        <div className="space-y-4 min-h-0 overflow-hidden">
           <Card className="bg-card/60 backdrop-blur-sm border-border/50">
             <CardHeader className="pb-4 border-b border-border/50">
               <CardTitle className="text-base font-serif flex items-center gap-2">
                 <Settings2 className="w-4 h-4 text-primary" />
                 Parameters
               </CardTitle>
+              <CardDescription className="text-xs">Tune the model before running a new analysis.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-5 pt-5">
+            <CardContent className="space-y-4 pt-5">
               {[
                 { label: "Min Confidence", value: minConf, onChange: setMinConf, min: 0, max: 1, step: 0.05, display: minConf[0].toFixed(2) },
                 { label: "Sensitivity", value: sensitivity, onChange: setSensitivity, min: 0.5, max: 1.5, step: 0.1, display: sensitivity[0].toFixed(2) },
@@ -516,7 +584,7 @@ export default function Home() {
                 <MapPin className="w-4 h-4 text-primary" />
                 Location
               </CardTitle>
-              <CardDescription className="text-xs">Improves species filtering</CardDescription>
+              <CardDescription className="text-xs">Improves species filtering and regional scoring.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 pt-5">
               {[

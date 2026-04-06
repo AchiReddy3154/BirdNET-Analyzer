@@ -11,6 +11,13 @@ out-tsc
 # dependencies
 node_modules
 
+# runtime data
+audio-inputs/*
+!audio-inputs/.gitkeep
+birdnet-api/uploads/
+birdnet-api/__pycache__/
+*.pyc
+
 # IDEs and editors
 /.idea
 .project

@@ -20,6 +20,8 @@ Also includes a standalone Python Flask service for BirdNET audio analysis.
 
 ## Key Commands
 
+- `pnpm run dev:easy` — one-command startup for BirdNET Flask API (8000), Node API (8081), and frontend (5173) on Windows
+- `pnpm run dev:stop` — stop listeners on ports 8000/8081/5173
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec

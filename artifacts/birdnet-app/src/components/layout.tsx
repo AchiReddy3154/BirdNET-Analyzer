@@ -1,19 +1,30 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { Bird, Activity, History, BarChart3, Sun, Moon } from "lucide-react";
+import { Bird, Activity, History, BarChart3, Sun, Moon, LogOut } from "lucide-react";
 import { useTheme } from "next-themes";
 import { motion } from "framer-motion";
 import { Button } from "./ui/button";
+import { useAuth } from "@/context/auth";
+import { useAnalysisSession } from "@/context/analysis";
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { theme, setTheme } = useTheme();
+  const { username, logout } = useAuth();
+  const { clearSession } = useAnalysisSession();
+  const isAnalyzePage = location === "/";
 
   const navItems = [
     { href: "/", label: "Analyze", icon: Activity },
     { href: "/history", label: "History", icon: History },
     { href: "/stats", label: "Stats", icon: BarChart3 },
   ];
+
+  const handleLogout = () => {
+    clearSession();
+    logout();
+    setLocation("/login");
+  };
 
   return (
     <div className="min-h-[100dvh] bg-background flex flex-col relative overflow-hidden font-sans">
@@ -73,6 +84,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
             <div className="w-px h-6 bg-border mx-2" />
 
+            <span className="text-xs text-muted-foreground hidden lg:inline">
+              Signed in as {username ?? "team-07"}
+            </span>
+
+            <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }} transition={{ type: "spring", stiffness: 400, damping: 20 }}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLogout}
+                className="gap-1.5"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Logout
+              </Button>
+            </motion.div>
+
             <motion.div whileHover={{ scale: 1.1, rotate: 15 }} whileTap={{ scale: 0.9 }} transition={{ type: "spring", stiffness: 400, damping: 20 }}>
               <Button
                 variant="ghost"
@@ -110,7 +137,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col container mx-auto p-4 sm:p-6 lg:p-8 z-10 pb-20 sm:pb-8">
+      <main className={cn(
+        "flex-1 flex flex-col container mx-auto p-4 sm:p-6 lg:p-8 z-10",
+        isAnalyzePage ? "pb-0" : "pb-20 sm:pb-8"
+      )}>
         {children}
       </main>
 

@@ -295,6 +295,10 @@ components:
       properties:
         file:
           type: string
+        spectrogram_image:
+          type: string
+          nullable: true
+          description: Base64-encoded PNG data URL representing the analyzed audio spectrogram.
         detections:
           type: array
           items:

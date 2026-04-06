@@ -4,7 +4,7 @@ import traceback
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
-from analyzer import analyze_audio
+from analyzer import analyze_audio, _generate_spectrogram_data_url
 
 app = Flask(__name__)
 CORS(app)
@@ -68,6 +68,7 @@ def analyze():
             sensitivity=sensitivity,
             overlap=overlap,
         )
+        results["spectrogram_image"] = results.get("spectrogram_image") or _generate_spectrogram_data_url(tmp_path)
         return jsonify(results), 200
     except Exception as exc:
         traceback.print_exc()
